@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "46291760964",
+    "project_id": "mailman-81",
+    "storage_bucket": "mailman-81.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:46291760964:android:31c0412a97318b89a28911",
+        "android_client_info": {
+          "package_name": "com.example.rook"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "46291760964-us11qeuvpf43r68f0r70ktohkhal33o5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtgt3i94mq3jc5T0WgAYBJweyXQkdLN_A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "46291760964-us11qeuvpf43r68f0r70ktohkhal33o5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
