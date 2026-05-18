@@ -48,55 +48,62 @@ public class ReportsActivity extends AppCompatActivity {
     }
 
     private void bindReportData() {
-        int testResultCount = dbHelper.getTestResultCount();
-        int total = testResultCount > 0 ? testResultCount : dbHelper.getHistoryCount();
-        float successRate = dbHelper.getSuccessRate();
-        int failures = dbHelper.getFailedHistoryCount();
-        int latency = dbHelper.getAverageLatency();
-        int collections = dbHelper.getProjectCount();
-        int endpoints = dbHelper.getEndpointCount();
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            int testResultCount = dbHelper.getTestResultCount();
+            int total = testResultCount > 0 ? testResultCount : dbHelper.getHistoryCount();
+            float successRate = dbHelper.getSuccessRate();
+            int failures = dbHelper.getFailedHistoryCount();
+            int latency = dbHelper.getAverageLatency();
+            int collectionsCount = dbHelper.getProjectCount();
+            int endpointsCount = dbHelper.getEndpointCount();
 
-        bindMetric(R.id.reportRequests, "REQUESTS", formatCompactCount(total), failures + " failed");
-        bindMetric(R.id.reportSuccess, "SUCCESS RATE", String.format(Locale.US, "%.1f%%", successRate), "Across all tests");
-        bindMetric(R.id.reportLatency, "AVG LATENCY", latency + "ms", "Mean response time");
-        bindMetric(R.id.reportCollections, "COLLECTIONS", String.valueOf(collections), endpoints + " endpoints");
+            List<HistoryItem> newItems = new ArrayList<>();
+            if (testResultCount > 0) {
+                Cursor cursor = dbHelper.getRecentTestResults(50);
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_METHOD));
+                        String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_REQUEST_URL));
+                        String apiPath = cursor.getString(cursor.getColumnIndexOrThrow("api_path"));
+                        String collectionName = cursor.getString(cursor.getColumnIndexOrThrow("collection_name"));
+                        int statusCode = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS_CODE));
+                        int responseTime = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_RESPONSE_TIME));
+                        String resultStatus = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS));
+                        long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_TIMESTAMP));
+                        String timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString();
+                        String status = statusCode > 0 ? statusCode + " " + resultStatus : "ERROR";
+                        String label = !isEmpty(apiPath) ? apiPath : url;
+                        String details = (isEmpty(collectionName) ? "Collection" : collectionName) + " · " + responseTime + "ms · " + timeAgo;
+                        newItems.add(new HistoryItem(method, url, method + " " + label, status, details, colorsFor(method, status)));
+                    }
+                    cursor.close();
+                }
+            } else {
+                Cursor cursor = dbHelper.getRecentHistory(20);
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_METHOD));
+                        String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_PATH));
+                        String status = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_STATUS));
+                        long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_TIMESTAMP));
+                        String timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString();
+                        newItems.add(new HistoryItem(method, path, method + " " + path, status, timeAgo, colorsFor(method, status)));
+                    }
+                    cursor.close();
+                }
+            }
 
-        historyItems.clear();
-        if (testResultCount > 0) {
-            Cursor cursor = dbHelper.getRecentTestResults(50);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_METHOD));
-                    String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_REQUEST_URL));
-                    String apiPath = cursor.getString(cursor.getColumnIndexOrThrow("api_path"));
-                    String collectionName = cursor.getString(cursor.getColumnIndexOrThrow("collection_name"));
-                    int statusCode = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS_CODE));
-                    int responseTime = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_RESPONSE_TIME));
-                    String resultStatus = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS));
-                    long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_TIMESTAMP));
-                    String timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString();
-                    String status = statusCode > 0 ? statusCode + " " + resultStatus : "ERROR";
-                    String label = !isEmpty(apiPath) ? apiPath : url;
-                    String details = (isEmpty(collectionName) ? "Collection" : collectionName) + " · " + responseTime + "ms · " + timeAgo;
-                    historyItems.add(new HistoryItem(method, url, method + " " + label, status, details, colorsFor(method, status)));
-                }
-                cursor.close();
-            }
-        } else {
-            Cursor cursor = dbHelper.getRecentHistory(20);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_METHOD));
-                    String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_PATH));
-                    String status = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_STATUS));
-                    long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_TIMESTAMP));
-                    String timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString();
-                    historyItems.add(new HistoryItem(method, path, method + " " + path, status, timeAgo, colorsFor(method, status)));
-                }
-                cursor.close();
-            }
-        }
-        adapter.notifyDataSetChanged();
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                bindMetric(R.id.reportRequests, "REQUESTS", formatCompactCount(total), failures + " failed");
+                bindMetric(R.id.reportSuccess, "SUCCESS RATE", String.format(Locale.US, "%.1f%%", successRate), "Across all tests");
+                bindMetric(R.id.reportLatency, "AVG LATENCY", latency + "ms", "Mean response time");
+                bindMetric(R.id.reportCollections, "COLLECTIONS", String.valueOf(collectionsCount), endpointsCount + " endpoints");
+
+                historyItems.clear();
+                historyItems.addAll(newItems);
+                adapter.notifyDataSetChanged();
+            });
+        });
     }
 
     private void bindMetric(int rootId, String label, String value, String subtext) {

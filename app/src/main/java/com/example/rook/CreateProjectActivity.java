@@ -81,15 +81,19 @@ public class CreateProjectActivity extends AppCompatActivity {
             return;
         }
 
-        long projectId = dbHelper.addProject(name, desc, selectedTemplate);
-        if (projectId != -1) {
-            Toast.makeText(this, "Collection created successfully!", Toast.LENGTH_SHORT).show();
-            Intent intent = new Intent(this, ProjectDetailsActivity.class);
-            intent.putExtra("PROJECT_ID", projectId);
-            startActivity(intent);
-            finish();
-        } else {
-            Toast.makeText(this, "Failed to create Collection.", Toast.LENGTH_SHORT).show();
-        }
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            long projectId = dbHelper.addProject(name, desc, selectedTemplate);
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                if (projectId != -1) {
+                    Toast.makeText(this, "Collection created successfully!", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(this, ProjectDetailsActivity.class);
+                    intent.putExtra("PROJECT_ID", projectId);
+                    startActivity(intent);
+                    finish();
+                } else {
+                    Toast.makeText(this, "Failed to create Collection.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
     }
 }

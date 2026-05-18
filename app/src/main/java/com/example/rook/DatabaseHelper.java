@@ -134,10 +134,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             removeSeedData(db);
         }
         if (oldVersion < 5) {
-            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_TYPE + " TEXT");
-            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_TOKEN + " TEXT");
-            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_USERNAME + " TEXT");
-            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_PASSWORD + " TEXT");
+            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_TYPE + " TEXT DEFAULT 'None'");
+            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_TOKEN + " TEXT DEFAULT ''");
+            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_USERNAME + " TEXT DEFAULT ''");
+            db.execSQL("ALTER TABLE " + TABLE_ENDPOINTS + " ADD COLUMN " + KEY_ENDPOINT_AUTH_PASSWORD + " TEXT DEFAULT ''");
         }
     }
 
@@ -204,6 +204,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cv.put(KEY_PROJECT_DESCRIPTION, description);
         cv.put(KEY_PROJECT_TEMPLATE, template);
         return db.update(TABLE_PROJECTS, cv, KEY_ID + "=?", new String[]{String.valueOf(projectId)});
+    }
+
+    public void deleteProject(long projectId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_PROJECTS, KEY_ID + "=?", new String[]{String.valueOf(projectId)});
+    }
+
+    public void deleteEndpoint(long endpointId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_ENDPOINTS, KEY_ID + "=?", new String[]{String.valueOf(endpointId)});
     }
 
     public long addEndpoint(long projectId, String method, String path, String description, String url) {

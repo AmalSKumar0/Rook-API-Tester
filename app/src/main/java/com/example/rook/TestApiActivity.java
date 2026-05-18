@@ -261,11 +261,12 @@ public class TestApiActivity extends AppCompatActivity {
 
                 // Pretty-print JSON
                 String display = body;
+                String trimmedBody = body.trim();
                 try {
-                    if (body.startsWith("{")) {
-                        display = new org.json.JSONObject(body).toString(4);
-                    } else if (body.startsWith("[")) {
-                        display = new org.json.JSONArray(body).toString(4);
+                    if (trimmedBody.startsWith("{")) {
+                        display = new org.json.JSONObject(trimmedBody).toString(4);
+                    } else if (trimmedBody.startsWith("[")) {
+                        display = new org.json.JSONArray(trimmedBody).toString(4);
                     }
                 } catch (Exception ignored) {}
 

@@ -49,6 +49,12 @@ public class ApiLabActivity extends AppCompatActivity {
     private MaterialButton btnGet, btnPost, btnPut, btnDelete;
     private TabLayout tabLayout;
     
+    // Project Selection
+    private View layoutProjectSelection;
+    private Spinner spinnerProject;
+    private final java.util.List<ProjectItem> projectList = new java.util.ArrayList<>();
+    private java.util.List<String> projectNames = new java.util.ArrayList<>();
+    
     // Auth Views
     private LinearLayout layoutAuth, layoutBasicAuth;
     private Spinner spinnerAuthType;
@@ -78,6 +84,7 @@ public class ApiLabActivity extends AppCompatActivity {
         setupMethodButtons();
         setupTabs();
         setupAuthTypeSpinner();
+        setupProjectSpinner();
 
         findViewById(R.id.btnSaveApi).setOnClickListener(v -> saveApi());
         findViewById(R.id.btnSendRequest).setOnClickListener(v -> sendRequest());
@@ -117,6 +124,53 @@ public class ApiLabActivity extends AppCompatActivity {
         
         tvHistoryCount = findViewById(R.id.tvHistoryCount);
         tvFavoritesCount = findViewById(R.id.tvFavoritesCount);
+        
+        layoutProjectSelection = findViewById(R.id.layoutProjectSelection);
+        spinnerProject = findViewById(R.id.spinnerProject);
+    }
+
+    private void setupProjectSpinner() {
+        if (projectId != -1) {
+            layoutProjectSelection.setVisibility(View.GONE);
+            return;
+        }
+
+        layoutProjectSelection.setVisibility(View.VISIBLE);
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            android.database.Cursor cursor = dbHelper.getAllProjects();
+            projectList.clear();
+            projectNames.clear();
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_NAME));
+                    projectList.add(new ProjectItem(id, name));
+                    projectNames.add(name);
+                }
+                cursor.close();
+            }
+
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                if (projectList.isEmpty()) {
+                    projectNames.add("No Collections Found");
+                    spinnerProject.setEnabled(false);
+                } else {
+                    spinnerProject.setEnabled(true);
+                }
+                ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, projectNames);
+                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spinnerProject.setAdapter(adapter);
+            });
+        });
+    }
+
+    private static class ProjectItem {
+        long id;
+        String name;
+        ProjectItem(long id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 
     private void setupAuthTypeSpinner() {
@@ -284,9 +338,11 @@ public class ApiLabActivity extends AppCompatActivity {
                     responseProgressBar.setVisibility(View.GONE);
                     updateResponseUI(code, message, duration, responseBody);
                     
-                    // Add to history
-                    dbHelper.addHistory(selectedMethod, etApiPath.getText().toString(), code + " " + message, (int)duration, responseBody);
-                    loadStats();
+                    // Add to history on background thread
+                    AppExecutors.getInstance().diskIO().execute(() -> {
+                        dbHelper.addHistory(selectedMethod, etApiPath.getText().toString(), code + " " + message, (int)duration, responseBody);
+                        AppExecutors.getInstance().mainThread().execute(this::loadStats);
+                    });
                 });
             }
         });
@@ -312,13 +368,14 @@ public class ApiLabActivity extends AppCompatActivity {
         tvResponseTime.setText(duration + "ms");
         
         if (body != null) {
-            tvResponseSize.setText(String.format("%.2f KB", body.length() / 1024f));
+            String trimmedBody = body.trim();
+            tvResponseSize.setText(String.format(java.util.Locale.US, "%.2f KB", body.length() / 1024f));
             try {
                 // Try to format JSON
-                if (body.startsWith("{")) {
-                    tvResponseContent.setText(new JSONObject(body).toString(2));
-                } else if (body.startsWith("[")) {
-                    tvResponseContent.setText(new JSONArray(body).toString(2));
+                if (trimmedBody.startsWith("{")) {
+                    tvResponseContent.setText(new JSONObject(trimmedBody).toString(2));
+                } else if (trimmedBody.startsWith("[")) {
+                    tvResponseContent.setText(new JSONArray(trimmedBody).toString(2));
                 } else {
                     tvResponseContent.setText(body);
                 }
@@ -364,14 +421,29 @@ public class ApiLabActivity extends AppCompatActivity {
             path = "/" + path;
         }
 
-        long result = dbHelper.addEndpoint(projectId, selectedMethod, path, desc, url, headers, body,
-                selectedAuthType, authToken, authUser, authPass);
-        if (result != -1) {
-            Toast.makeText(this, "API Saved to Collection", Toast.LENGTH_SHORT).show();
-            finish();
-        } else {
-            Toast.makeText(this, "Failed to save API", Toast.LENGTH_SHORT).show();
+        long targetProjectId = projectId;
+        if (targetProjectId == -1) {
+            if (projectList.isEmpty()) {
+                Toast.makeText(this, "Create a collection first!", Toast.LENGTH_LONG).show();
+                return;
+            }
+            targetProjectId = projectList.get(spinnerProject.getSelectedItemPosition()).id;
         }
+
+        final long finalProjectId = targetProjectId;
+        final String finalPath = path;
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            long result = dbHelper.addEndpoint(finalProjectId, selectedMethod, finalPath, desc, url, headers, body,
+                    selectedAuthType, authToken, authUser, authPass);
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                if (result != -1) {
+                    Toast.makeText(this, "API Saved to Collection", Toast.LENGTH_SHORT).show();
+                    finish();
+                } else {
+                    Toast.makeText(this, "Failed to save API", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
     }
 
     private void copyResponseToClipboard() {

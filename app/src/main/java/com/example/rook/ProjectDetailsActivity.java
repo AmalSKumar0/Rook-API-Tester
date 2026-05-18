@@ -90,6 +90,21 @@ public class ProjectDetailsActivity extends AppCompatActivity {
             intent.putExtra("AUTH_USERNAME", endpoint.authUsername);
             intent.putExtra("AUTH_PASSWORD", endpoint.authPassword);
             startActivity(intent);
+        }, endpoint -> {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("Delete API")
+                    .setMessage("Are you sure you want to delete this API endpoint?")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            dbHelper.deleteEndpoint(endpoint.id);
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                loadEndpoints();
+                                Toast.makeText(this, "API deleted", Toast.LENGTH_SHORT).show();
+                            });
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         });
         rvEndpoints.setAdapter(adapter);
 
@@ -178,26 +193,32 @@ public class ProjectDetailsActivity extends AppCompatActivity {
     }
 
     private void loadEndpoints() {
-        endpointList.clear();
-        Cursor cursor = dbHelper.getEndpointsForProject(projectId);
-        if (cursor != null) {
-            while (cursor.moveToNext()) {
-                long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
-                String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_METHOD));
-                String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_PATH));
-                String desc = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_DESCRIPTION));
-                String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_URL));
-                String headers = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_HEADERS));
-                String body = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_BODY));
-                String authType = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TYPE));
-                String authToken = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TOKEN));
-                String authUsername = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_USERNAME));
-                String authPassword = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_PASSWORD));
-                endpointList.add(new Endpoint(id, method, path, desc, url, headers, body, authType, authToken, authUsername, authPassword));
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            List<Endpoint> newItems = new ArrayList<>();
+            Cursor cursor = dbHelper.getEndpointsForProject(projectId);
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
+                    String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_METHOD));
+                    String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_PATH));
+                    String desc = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_DESCRIPTION));
+                    String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_URL));
+                    String headers = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_HEADERS));
+                    String body = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_BODY));
+                    String authType = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TYPE));
+                    String authToken = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TOKEN));
+                    String authUsername = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_USERNAME));
+                    String authPassword = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_PASSWORD));
+                    newItems.add(new Endpoint(id, method, path, desc, url, headers, body, authType, authToken, authUsername, authPassword));
+                }
+                cursor.close();
             }
-            cursor.close();
-        }
-        filterEndpoints(etSearch.getText() != null ? etSearch.getText().toString() : "");
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                endpointList.clear();
+                endpointList.addAll(newItems);
+                filterEndpoints(etSearch.getText() != null ? etSearch.getText().toString() : "");
+            });
+        });
     }
 
     private void filterEndpoints(String query) {
@@ -487,15 +508,21 @@ public class ProjectDetailsActivity extends AppCompatActivity {
         void onTestClick(Endpoint endpoint);
     }
 
+    public interface OnEndpointDeleteListener {
+        void onDeleteClick(Endpoint endpoint);
+    }
+
     // RecyclerView Adapter
     public static class EndpointsAdapter extends RecyclerView.Adapter<EndpointsAdapter.ViewHolder> {
 
         private final List<Endpoint> items;
         private final OnEndpointTestClickListener listener;
+        private final OnEndpointDeleteListener deleteListener;
 
-        public EndpointsAdapter(List<Endpoint> items, OnEndpointTestClickListener listener) {
+        public EndpointsAdapter(List<Endpoint> items, OnEndpointTestClickListener listener, OnEndpointDeleteListener deleteListener) {
             this.items = items;
             this.listener = listener;
+            this.deleteListener = deleteListener;
         }
 
         @NonNull
@@ -546,6 +573,13 @@ public class ProjectDetailsActivity extends AppCompatActivity {
                 if (listener != null) {
                     listener.onTestClick(item);
                 }
+            });
+
+            holder.itemView.setOnLongClickListener(v -> {
+                if (deleteListener != null) {
+                    deleteListener.onDeleteClick(item);
+                }
+                return true;
             });
         }
 

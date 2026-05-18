@@ -41,7 +41,22 @@ public class MyApisActivity extends AppCompatActivity {
         emptyCollectionState = findViewById(R.id.emptyCollectionState);
 
         rvCollections.setLayoutManager(new LinearLayoutManager(this));
-        adapter = new CollectionAdapter(collections, this::launchProjectDetails);
+        adapter = new CollectionAdapter(collections, this::launchProjectDetails, collection -> {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Delete Collection")
+                    .setMessage("Are you sure you want to delete '" + collection.name + "'? All endpoints in this collection will be lost.")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            dbHelper.deleteProject(collection.id);
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                bindProjectsFromDatabase();
+                                android.widget.Toast.makeText(this, "Collection deleted", android.widget.Toast.LENGTH_SHORT).show();
+                            });
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
         rvCollections.setAdapter(adapter);
 
         View btnCreateColl = findViewById(R.id.btnCreateCollection);
@@ -62,25 +77,32 @@ public class MyApisActivity extends AppCompatActivity {
     }
 
     private void bindProjectsFromDatabase() {
-        collections.clear();
-        Cursor cursor = dbHelper.getAllProjects();
-        if (cursor != null) {
-            while (cursor.moveToNext()) {
-                long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
-                String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_NAME));
-                String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_DESCRIPTION));
-                int endpointCount = dbHelper.getEndpointCountForProject(id);
-                collections.add(new CollectionItem(id, name, description, endpointCount));
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            List<CollectionItem> newItems = new ArrayList<>();
+            Cursor cursor = dbHelper.getAllProjects();
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_NAME));
+                    String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_DESCRIPTION));
+                    int endpointCount = dbHelper.getEndpointCountForProject(id);
+                    newItems.add(new CollectionItem(id, name, description, endpointCount));
+                }
+                cursor.close();
             }
-            cursor.close();
-        }
 
-        int apiCount = dbHelper.getEndpointCount();
-        tvCollectionSummary.setText(String.format(Locale.US, "%d collections · %d APIs", collections.size(), apiCount));
-        boolean isEmpty = collections.isEmpty();
-        rvCollections.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-        emptyCollectionState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-        adapter.notifyDataSetChanged();
+            int apiCount = dbHelper.getEndpointCount();
+            
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                collections.clear();
+                collections.addAll(newItems);
+                tvCollectionSummary.setText(String.format(Locale.US, "%d collections · %d APIs", collections.size(), apiCount));
+                boolean isEmpty = collections.isEmpty();
+                rvCollections.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+                emptyCollectionState.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+                adapter.notifyDataSetChanged();
+            });
+        });
     }
 
     private void launchProjectDetails(CollectionItem collection) {
@@ -107,13 +129,19 @@ public class MyApisActivity extends AppCompatActivity {
         void onItemClick(CollectionItem collection);
     }
 
+    private interface OnCollectionLongClickListener {
+        void onLongClick(CollectionItem collection);
+    }
+
     private static class CollectionAdapter extends RecyclerView.Adapter<CollectionAdapter.ViewHolder> {
         private final List<CollectionItem> items;
         private final OnCollectionClickListener listener;
+        private final OnCollectionLongClickListener longClickListener;
 
-        CollectionAdapter(List<CollectionItem> items, OnCollectionClickListener listener) {
+        CollectionAdapter(List<CollectionItem> items, OnCollectionClickListener listener, OnCollectionLongClickListener longClickListener) {
             this.items = items;
             this.listener = listener;
+            this.longClickListener = longClickListener;
         }
 
         @NonNull
@@ -135,6 +163,12 @@ public class MyApisActivity extends AppCompatActivity {
                 if (listener != null) {
                     listener.onItemClick(item);
                 }
+            });
+            holder.itemView.setOnLongClickListener(v -> {
+                if (longClickListener != null) {
+                    longClickListener.onLongClick(item);
+                }
+                return true;
             });
         }
 

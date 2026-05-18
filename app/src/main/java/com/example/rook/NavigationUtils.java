@@ -81,8 +81,8 @@ public class NavigationUtils {
         });
 
         navAdd.setOnClickListener(v -> {
-            if (!(activity instanceof CreateProjectActivity)) {
-                activity.startActivity(new Intent(activity, CreateProjectActivity.class));
+            if (!(activity instanceof ApiLabActivity)) {
+                activity.startActivity(new Intent(activity, ApiLabActivity.class));
                 activity.overridePendingTransition(0, 0);
             }
         });
@@ -120,7 +120,7 @@ public class NavigationUtils {
             iconHome.setColorFilter(primaryColor);
         } else if (activity instanceof MyApisActivity && iconSearch != null) {
             iconSearch.setColorFilter(primaryColor);
-        } else if (activity instanceof CreateProjectActivity && iconAdd != null) {
+        } else if (activity instanceof ApiLabActivity && iconAdd != null) {
             iconAdd.setColorFilter(primaryColor);
         } else if (activity instanceof ReportsActivity && iconAnalytics != null) {
             iconAnalytics.setColorFilter(primaryColor);

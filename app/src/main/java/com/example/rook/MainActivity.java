@@ -54,7 +54,22 @@ public class MainActivity extends AppCompatActivity {
 
         RecyclerView rvCollections = findViewById(R.id.rvCollections);
         rvCollections.setLayoutManager(new LinearLayoutManager(this));
-        collectionAdapter = new CollectionAdapter(collectionList, this::openCollectionDetails);
+        collectionAdapter = new CollectionAdapter(collectionList, this::openCollectionDetails, collection -> {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Delete Collection")
+                    .setMessage("Are you sure you want to delete '" + collection.name + "'? All endpoints in this collection will be lost.")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        AppExecutors.getInstance().diskIO().execute(() -> {
+                            dbHelper.deleteProject(collection.id);
+                            AppExecutors.getInstance().mainThread().execute(() -> {
+                                loadDashboardData();
+                                android.widget.Toast.makeText(this, "Collection deleted", android.widget.Toast.LENGTH_SHORT).show();
+                            });
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
         rvCollections.setAdapter(collectionAdapter);
 
         RecyclerView rvReports = findViewById(R.id.rvReports);
@@ -89,82 +104,98 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadDashboardData() {
-        int testResultCount = dbHelper.getTestResultCount();
-        int count = testResultCount > 0 ? testResultCount : dbHelper.getHistoryCount();
-        tvTotalRequests.setText(formatCompactCount(count));
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            int testResultCount = dbHelper.getTestResultCount();
+            int count = testResultCount > 0 ? testResultCount : dbHelper.getHistoryCount();
+            float successRate = dbHelper.getSuccessRate();
+            int avgLatency = dbHelper.getAverageLatency();
+            
+            int projectCount = dbHelper.getProjectCount();
+            int endpointCount = dbHelper.getEndpointCount();
+            int failedCount = dbHelper.getFailedHistoryCount();
 
-        float successRate = dbHelper.getSuccessRate();
-        tvSuccessRate.setText(String.format(Locale.US, "%.1f%%", successRate));
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                tvTotalRequests.setText(formatCompactCount(count));
+                tvSuccessRate.setText(String.format(Locale.US, "%.1f%%", successRate));
+                tvAvgLatency.setText(String.format(Locale.US, "Avg response: %dms", avgLatency));
 
-        int avgLatency = dbHelper.getAverageLatency();
-        tvAvgLatency.setText("Avg response: " + avgLatency + "ms");
-
-        loadRecentTests();
-        loadCollections();
-        loadReports(count, successRate, avgLatency);
+                loadRecentTests();
+                loadCollections();
+                
+                reportList.clear();
+                reportList.add(new ReportItem("Test volume", formatCompactCount(count), "Stored SQLite executions", R.drawable.ic_nav_reports));
+                reportList.add(new ReportItem("Collections", String.valueOf(projectCount), endpointCount + " saved endpoints", R.drawable.ic_nav_collections));
+                reportList.add(new ReportItem("Failures", String.valueOf(failedCount), String.format(Locale.US, "%.1f%% success rate", successRate), R.drawable.ic_nav_reports));
+                reportList.add(new ReportItem("Latency", avgLatency + "ms", "Average response time", R.drawable.ic_nav_reports));
+                reportAdapter.notifyDataSetChanged();
+            });
+        });
     }
 
     private void loadRecentTests() {
-        activityList.clear();
-        if (dbHelper.getTestResultCount() > 0) {
-            Cursor cursor = dbHelper.getRecentTestResults(5);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_METHOD));
-                    String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_REQUEST_URL));
-                    String apiPath = cursor.getString(cursor.getColumnIndexOrThrow("api_path"));
-                    int statusCode = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS_CODE));
-                    String resultStatus = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS));
-                    long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_TIMESTAMP));
-                    String label = !isEmpty(apiPath) ? apiPath : url;
-                    String status = statusCode > 0 ? statusCode + " " + resultStatus : "ERROR";
-                    CharSequence timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-                    activityList.add(new ApiActivity(method, url, method + " " + label, timeAgo.toString(), status, colorsFor(method, status)));
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            List<ApiActivity> newItems = new ArrayList<>();
+            if (dbHelper.getTestResultCount() > 0) {
+                Cursor cursor = dbHelper.getRecentTestResults(5);
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_METHOD));
+                        String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_REQUEST_URL));
+                        String apiPath = cursor.getString(cursor.getColumnIndexOrThrow("api_path"));
+                        int statusCode = cursor.getInt(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS_CODE));
+                        String resultStatus = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_STATUS));
+                        long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_RESULT_TIMESTAMP));
+                        String label = !isEmpty(apiPath) ? apiPath : url;
+                        String status = statusCode > 0 ? statusCode + " " + resultStatus : "ERROR";
+                        CharSequence timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
+                        newItems.add(new ApiActivity(method, url, method + " " + label, timeAgo.toString(), status, colorsFor(method, status)));
+                    }
+                    cursor.close();
                 }
-                cursor.close();
-            }
-        } else {
-            Cursor cursor = dbHelper.getRecentHistory(5);
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_METHOD));
-                    String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_PATH));
-                    String status = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_STATUS));
-                    long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_TIMESTAMP));
-                    CharSequence timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
-                    activityList.add(new ApiActivity(method, path, method + " " + path, timeAgo.toString(), status, colorsFor(method, status)));
+            } else {
+                Cursor cursor = dbHelper.getRecentHistory(5);
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_METHOD));
+                        String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_PATH));
+                        String status = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_STATUS));
+                        long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_HISTORY_TIMESTAMP));
+                        CharSequence timeAgo = DateUtils.getRelativeTimeSpanString(timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS);
+                        newItems.add(new ApiActivity(method, path, method + " " + path, timeAgo.toString(), status, colorsFor(method, status)));
+                    }
+                    cursor.close();
                 }
-                cursor.close();
             }
-        }
-        recentAdapter.notifyDataSetChanged();
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                activityList.clear();
+                activityList.addAll(newItems);
+                recentAdapter.notifyDataSetChanged();
+            });
+        });
     }
 
     private void loadCollections() {
-        collectionList.clear();
-        Cursor cursor = dbHelper.getAllProjects();
-        int shown = 0;
-        if (cursor != null) {
-            while (cursor.moveToNext() && shown < 4) {
-                long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
-                String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_NAME));
-                String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_DESCRIPTION));
-                int endpointCount = dbHelper.getEndpointCountForProject(id);
-                collectionList.add(new CollectionItem(id, name, description, endpointCount));
-                shown++;
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            List<CollectionItem> newItems = new ArrayList<>();
+            Cursor cursor = dbHelper.getAllProjects();
+            int shown = 0;
+            if (cursor != null) {
+                while (cursor.moveToNext() && shown < 4) {
+                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ID));
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_NAME));
+                    String description = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_PROJECT_DESCRIPTION));
+                    int endpointCount = dbHelper.getEndpointCountForProject(id);
+                    newItems.add(new CollectionItem(id, name, description, endpointCount));
+                    shown++;
+                }
+                cursor.close();
             }
-            cursor.close();
-        }
-        collectionAdapter.notifyDataSetChanged();
-    }
-
-    private void loadReports(int requestCount, float successRate, int avgLatency) {
-        reportList.clear();
-        reportList.add(new ReportItem("Test volume", formatCompactCount(requestCount), "Stored SQLite executions", R.drawable.ic_nav_reports));
-        reportList.add(new ReportItem("Collections", String.valueOf(dbHelper.getProjectCount()), dbHelper.getEndpointCount() + " saved endpoints", R.drawable.ic_nav_collections));
-        reportList.add(new ReportItem("Failures", String.valueOf(dbHelper.getFailedHistoryCount()), String.format(Locale.US, "%.1f%% success rate", successRate), R.drawable.ic_nav_reports));
-        reportList.add(new ReportItem("Latency", avgLatency + "ms", "Average response time", R.drawable.ic_nav_reports));
-        reportAdapter.notifyDataSetChanged();
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                collectionList.clear();
+                collectionList.addAll(newItems);
+                collectionAdapter.notifyDataSetChanged();
+            });
+        });
     }
 
     private void openApiDetails(ApiActivity activity) {
@@ -290,6 +321,10 @@ public class MainActivity extends AppCompatActivity {
         void onItemClick(CollectionItem collection);
     }
 
+    private interface OnCollectionLongClickListener {
+        void onLongClick(CollectionItem collection);
+    }
+
     private interface OnReportClickListener {
         void onItemClick(ReportItem report);
     }
@@ -350,10 +385,12 @@ public class MainActivity extends AppCompatActivity {
     private static class CollectionAdapter extends RecyclerView.Adapter<CollectionAdapter.ViewHolder> {
         private final List<CollectionItem> items;
         private final OnCollectionClickListener listener;
+        private final OnCollectionLongClickListener longClickListener;
 
-        CollectionAdapter(List<CollectionItem> items, OnCollectionClickListener listener) {
+        CollectionAdapter(List<CollectionItem> items, OnCollectionClickListener listener, OnCollectionLongClickListener longClickListener) {
             this.items = items;
             this.listener = listener;
+            this.longClickListener = longClickListener;
         }
 
         @NonNull
@@ -371,6 +408,10 @@ public class MainActivity extends AppCompatActivity {
             holder.meta.setText(item.endpointCount == 1 ? "1 endpoint" : item.endpointCount + " endpoints");
             holder.itemView.setOnClickListener(v -> {
                 if (listener != null) listener.onItemClick(item);
+            });
+            holder.itemView.setOnLongClickListener(v -> {
+                if (longClickListener != null) longClickListener.onLongClick(item);
+                return true;
             });
         }
 
