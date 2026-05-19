@@ -42,11 +42,14 @@ public class ApiLabActivity extends AppCompatActivity {
     private DatabaseHelper dbHelper;
     private OkHttpClient client;
     private long projectId = -1;
+    private long apiId = -1;
     private String selectedMethod = "GET";
     private String selectedAuthType = "None";
+    private Call currentCall;
     
     private EditText etApiPath, etApiUrl, etApiDescription, etHeaders, etBody;
     private MaterialButton btnGet, btnPost, btnPut, btnDelete;
+    private MaterialButton btnSaveApi;
     private TabLayout tabLayout;
     
     // Project Selection
@@ -74,11 +77,12 @@ public class ApiLabActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
         client = new OkHttpClient();
         projectId = getIntent().getLongExtra("PROJECT_ID", -1);
+        apiId = getIntent().getLongExtra("API_ID", -1);
 
-        NavigationUtils.setupAppChrome(this, "API Lab", true);
+        NavigationUtils.setupAppChrome(this, apiId == -1 ? "API Lab" : "Edit API", true);
         
         TextView headerSubtitle = findViewById(R.id.headerSubtitle);
-        if (headerSubtitle != null) headerSubtitle.setText("Request Builder");
+        if (headerSubtitle != null) headerSubtitle.setText(apiId == -1 ? "Request Builder" : "Modify Details");
 
         initViews();
         setupMethodButtons();
@@ -86,11 +90,73 @@ public class ApiLabActivity extends AppCompatActivity {
         setupAuthTypeSpinner();
         setupProjectSpinner();
 
-        findViewById(R.id.btnSaveApi).setOnClickListener(v -> saveApi());
+        btnSaveApi = findViewById(R.id.btnSaveApi);
+        if (apiId != -1) {
+            btnSaveApi.setText("Update");
+        }
+        btnSaveApi.setOnClickListener(v -> saveApi());
+        
         findViewById(R.id.btnSendRequest).setOnClickListener(v -> sendRequest());
         findViewById(R.id.btnCopyResponse).setOnClickListener(v -> copyResponseToClipboard());
         
+        if (apiId != -1) {
+            loadApiData();
+        } else {
+            // Handle one-off tests from history/analytics
+            String method = getIntent().getStringExtra("METHOD");
+            String url = getIntent().getStringExtra("URL");
+            String path = getIntent().getStringExtra("PATH");
+            if (method != null) selectMethod(method);
+            if (url != null) etApiUrl.setText(url);
+            if (path != null) etApiPath.setText(path);
+        }
         loadStats();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (currentCall != null && !currentCall.isCanceled()) {
+            currentCall.cancel();
+        }
+    }
+
+    private void loadApiData() {
+        AppExecutors.getInstance().diskIO().execute(() -> {
+            android.database.Cursor cursor = dbHelper.getEndpoint(apiId);
+            if (cursor != null && cursor.moveToFirst()) {
+                String method = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_METHOD));
+                String path = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_PATH));
+                String desc = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_DESCRIPTION));
+                String url = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_URL));
+                String headers = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_HEADERS));
+                String body = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_BODY));
+                String authType = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TYPE));
+                String authToken = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_TOKEN));
+                String authUsername = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_USERNAME));
+                String authPassword = cursor.getString(cursor.getColumnIndexOrThrow(DatabaseHelper.KEY_ENDPOINT_AUTH_PASSWORD));
+                cursor.close();
+
+                AppExecutors.getInstance().mainThread().execute(() -> {
+                    selectMethod(method);
+                    etApiPath.setText(path);
+                    etApiUrl.setText(url);
+                    etApiDescription.setText(desc);
+                    etHeaders.setText(headers);
+                    etBody.setText(body);
+                    
+                    // Auth selection
+                    int authPos = 0;
+                    if ("Bearer Token".equals(authType)) authPos = 1;
+                    else if ("Basic Auth".equals(authType)) authPos = 2;
+                    spinnerAuthType.setSelection(authPos);
+                    
+                    etAuthToken.setText(authToken);
+                    etAuthUsername.setText(authUsername);
+                    etAuthPassword.setText(authPassword);
+                });
+            }
+        });
     }
 
     private void initViews() {
@@ -318,10 +384,16 @@ public class ApiLabActivity extends AppCompatActivity {
         tvResponseContent.setText("Executing request...");
         final long startTime = System.currentTimeMillis();
 
-        client.newCall(builder.build()).enqueue(new Callback() {
+        if (currentCall != null && !currentCall.isCanceled()) {
+            currentCall.cancel();
+        }
+        currentCall = client.newCall(builder.build());
+
+        currentCall.enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     responseProgressBar.setVisibility(View.GONE);
                     updateResponseUI(0, "ERROR", System.currentTimeMillis() - startTime, e.getMessage());
                 });
@@ -335,13 +407,18 @@ public class ApiLabActivity extends AppCompatActivity {
                 final long duration = System.currentTimeMillis() - startTime;
 
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     responseProgressBar.setVisibility(View.GONE);
                     updateResponseUI(code, message, duration, responseBody);
                     
                     // Add to history on background thread
                     AppExecutors.getInstance().diskIO().execute(() -> {
                         dbHelper.addHistory(selectedMethod, etApiPath.getText().toString(), code + " " + message, (int)duration, responseBody);
-                        AppExecutors.getInstance().mainThread().execute(this::loadStats);
+                        AppExecutors.getInstance().mainThread().execute(() -> {
+                            if (!isFinishing() && !isDestroyed()) {
+                                loadStats();
+                            }
+                        });
                     });
                 });
             }
@@ -433,11 +510,18 @@ public class ApiLabActivity extends AppCompatActivity {
         final long finalProjectId = targetProjectId;
         final String finalPath = path;
         AppExecutors.getInstance().diskIO().execute(() -> {
-            long result = dbHelper.addEndpoint(finalProjectId, selectedMethod, finalPath, desc, url, headers, body,
-                    selectedAuthType, authToken, authUser, authPass);
+            long result;
+            if (apiId == -1) {
+                result = dbHelper.addEndpoint(finalProjectId, selectedMethod, finalPath, desc, url, headers, body,
+                        selectedAuthType, authToken, authUser, authPass);
+            } else {
+                result = dbHelper.updateEndpoint(apiId, selectedMethod, finalPath, desc, url, headers, body,
+                        selectedAuthType, authToken, authUser, authPass);
+            }
+            
             AppExecutors.getInstance().mainThread().execute(() -> {
                 if (result != -1) {
-                    Toast.makeText(this, "API Saved to Collection", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, apiId == -1 ? "API Saved to Collection" : "API Updated", Toast.LENGTH_SHORT).show();
                     finish();
                 } else {
                     Toast.makeText(this, "Failed to save API", Toast.LENGTH_SHORT).show();

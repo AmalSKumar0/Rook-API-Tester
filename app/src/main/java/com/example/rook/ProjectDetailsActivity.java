@@ -78,17 +78,9 @@ public class ProjectDetailsActivity extends AppCompatActivity {
 
         rvEndpoints.setLayoutManager(new LinearLayoutManager(this));
         adapter = new EndpointsAdapter(filteredList, endpoint -> {
-            Intent intent = new Intent(ProjectDetailsActivity.this, TestApiActivity.class);
+            Intent intent = new Intent(ProjectDetailsActivity.this, ApiLabActivity.class);
             intent.putExtra("API_ID", endpoint.id);
             intent.putExtra("PROJECT_ID", projectId);
-            intent.putExtra("URL", endpoint.url);
-            intent.putExtra("METHOD", endpoint.method);
-            intent.putExtra("HEADERS", endpoint.headers);
-            intent.putExtra("BODY", endpoint.body);
-            intent.putExtra("AUTH_TYPE", endpoint.authType);
-            intent.putExtra("AUTH_TOKEN", endpoint.authToken);
-            intent.putExtra("AUTH_USERNAME", endpoint.authUsername);
-            intent.putExtra("AUTH_PASSWORD", endpoint.authPassword);
             startActivity(intent);
         }, endpoint -> {
             new MaterialAlertDialogBuilder(this)

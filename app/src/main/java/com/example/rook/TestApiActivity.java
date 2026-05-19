@@ -42,6 +42,7 @@ public class TestApiActivity extends AppCompatActivity {
     private String authToken = "";
     private String authUsername = "";
     private String authPassword = "";
+    private Call currentCall;
 
     // Method views
     private TextView methodGet, methodPost, methodPut, methodDelete;
@@ -115,6 +116,14 @@ public class TestApiActivity extends AppCompatActivity {
                 clipboard.setPrimaryClip(clip);
                 Toast.makeText(this, "Copied to clipboard!", Toast.LENGTH_SHORT).show();
             });
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (currentCall != null && !currentCall.isCanceled()) {
+            currentCall.cancel();
         }
     }
 
@@ -225,7 +234,12 @@ public class TestApiActivity extends AppCompatActivity {
                 break;
         }
 
-        client.newCall(builder.build()).enqueue(new Callback() {
+        if (currentCall != null && !currentCall.isCanceled()) {
+            currentCall.cancel();
+        }
+        currentCall = client.newCall(builder.build());
+
+        currentCall.enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 long latency = System.currentTimeMillis() - startTime;
@@ -238,6 +252,7 @@ public class TestApiActivity extends AppCompatActivity {
                 }
 
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     tvStatusCode.setText("ERROR");
                     tvStatusCode.setTextColor(ContextCompat.getColor(TestApiActivity.this, R.color.error));
                     tvResponseBody.setText(e.getMessage());
@@ -274,6 +289,7 @@ public class TestApiActivity extends AppCompatActivity {
                 currentResponseBody = display;
 
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     tvStatusCode.setText(code + " " + response.message());
                     tvLatency.setText(latency + "ms");
                     tvStatusCode.setTextColor(ContextCompat.getColor(

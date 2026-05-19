@@ -41,9 +41,6 @@
             android:name=".ReportsActivity"
             android:exported="false" />
         <activity
-            android:name=".TestApiActivity"
-            android:exported="false" />
-        <activity
             android:name=".MainActivity"
             android:exported="false" />
         <activity

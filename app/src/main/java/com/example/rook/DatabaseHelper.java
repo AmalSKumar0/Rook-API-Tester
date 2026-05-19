@@ -242,6 +242,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.insert(TABLE_ENDPOINTS, null, cv);
     }
 
+    public int updateEndpoint(long endpointId, String method, String path, String description, String url, String headers, String body,
+                               String authType, String authToken, String authUsername, String authPassword) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(KEY_ENDPOINT_METHOD, method);
+        cv.put(KEY_ENDPOINT_PATH, path);
+        cv.put(KEY_ENDPOINT_DESCRIPTION, description);
+        cv.put(KEY_ENDPOINT_URL, url);
+        cv.put(KEY_ENDPOINT_HEADERS, headers);
+        cv.put(KEY_ENDPOINT_BODY, body);
+        cv.put(KEY_ENDPOINT_AUTH_TYPE, authType);
+        cv.put(KEY_ENDPOINT_AUTH_TOKEN, authToken);
+        cv.put(KEY_ENDPOINT_AUTH_USERNAME, authUsername);
+        cv.put(KEY_ENDPOINT_AUTH_PASSWORD, authPassword);
+        return db.update(TABLE_ENDPOINTS, cv, KEY_ID + "=?", new String[]{String.valueOf(endpointId)});
+    }
+
     public long addTestResult(long apiId, long collectionId, String requestUrl, String method, String headers,
                               String requestBody, String responseBody, int statusCode, int responseTime,
                               String resultStatus, long timestamp) {
@@ -288,6 +305,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public Cursor getEndpointsForProject(long projectId) {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(TABLE_ENDPOINTS, null, KEY_ENDPOINT_PROJECT_ID + "=?", new String[]{String.valueOf(projectId)}, null, null, KEY_ID + " ASC");
+    }
+
+    public Cursor getEndpoint(long endpointId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(TABLE_ENDPOINTS, null, KEY_ID + "=?", new String[]{String.valueOf(endpointId)}, null, null, null, "1");
     }
 
     public Cursor getRecentHistory(int limit) {

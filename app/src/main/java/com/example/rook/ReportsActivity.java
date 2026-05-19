@@ -115,7 +115,7 @@ public class ReportsActivity extends AppCompatActivity {
     }
 
     private void openApiDetails(HistoryItem item) {
-        Intent intent = new Intent(this, TestApiActivity.class);
+        Intent intent = new Intent(this, ApiLabActivity.class);
         intent.putExtra("METHOD", item.method);
         intent.putExtra("PATH", item.path);
         intent.putExtra("URL", guessUrlForPath(item.path));

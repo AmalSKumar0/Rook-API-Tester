@@ -9,6 +9,11 @@ import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
+import com.google.android.material.imageview.ShapeableImageView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 /**
  * Shared app chrome wiring for the reusable header and bottom navigation.
  */
@@ -108,24 +113,62 @@ public class NavigationUtils {
         ImageView iconSearch = activity.findViewById(R.id.iconSearch);
         ImageView iconAdd = activity.findViewById(R.id.iconAdd);
         ImageView iconAnalytics = activity.findViewById(R.id.iconAnalytics);
-        ImageView iconProfile = activity.findViewById(R.id.iconProfile);
+        ShapeableImageView iconProfile = activity.findViewById(R.id.iconProfile);
 
-        if (iconHome != null) iconHome.setColorFilter(inactiveColor);
-        if (iconSearch != null) iconSearch.setColorFilter(inactiveColor);
-        if (iconAdd != null) iconAdd.setColorFilter(inactiveColor);
-        if (iconAnalytics != null) iconAnalytics.setColorFilter(inactiveColor);
-        if (iconProfile != null) iconProfile.setColorFilter(inactiveColor);
+        // Reset all to inactive
+        if (iconHome != null) {
+            iconHome.setColorFilter(inactiveColor);
+            iconHome.setScaleX(1.0f); iconHome.setScaleY(1.0f);
+        }
+        if (iconSearch != null) {
+            iconSearch.setColorFilter(inactiveColor);
+            iconSearch.setScaleX(1.0f); iconSearch.setScaleY(1.0f);
+        }
+        if (iconAdd != null) {
+            iconAdd.setColorFilter(inactiveColor);
+            iconAdd.setScaleX(1.0f); iconAdd.setScaleY(1.0f);
+        }
+        if (iconAnalytics != null) {
+            iconAnalytics.setColorFilter(inactiveColor);
+            iconAnalytics.setScaleX(1.0f); iconAnalytics.setScaleY(1.0f);
+        }
+        
+        // Setup Profile Icon with Glide
+        if (iconProfile != null) {
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null && currentUser.getPhotoUrl() != null) {
+                iconProfile.clearColorFilter(); // Don't tint the actual photo
+                Glide.with(activity)
+                        .load(currentUser.getPhotoUrl())
+                        .placeholder(R.drawable.ic_nav_profile)
+                        .into(iconProfile);
+            } else {
+                iconProfile.setColorFilter(inactiveColor);
+            }
+            iconProfile.setStrokeColorResource(R.color.on_surface_variant);
+            iconProfile.setScaleX(1.0f); iconProfile.setScaleY(1.0f);
+        }
 
+        // Apply active states
         if (activity instanceof MainActivity && iconHome != null) {
             iconHome.setColorFilter(primaryColor);
+            iconHome.setScaleX(1.15f); iconHome.setScaleY(1.15f);
         } else if (activity instanceof MyApisActivity && iconSearch != null) {
             iconSearch.setColorFilter(primaryColor);
+            iconSearch.setScaleX(1.15f); iconSearch.setScaleY(1.15f);
         } else if (activity instanceof ApiLabActivity && iconAdd != null) {
             iconAdd.setColorFilter(primaryColor);
+            iconAdd.setScaleX(1.1f); iconAdd.setScaleY(1.1f);
         } else if (activity instanceof ReportsActivity && iconAnalytics != null) {
             iconAnalytics.setColorFilter(primaryColor);
+            iconAnalytics.setScaleX(1.15f); iconAnalytics.setScaleY(1.15f);
         } else if (activity instanceof UserProfileActivity && iconProfile != null) {
-            iconProfile.setColorFilter(primaryColor);
+            iconProfile.setStrokeColorResource(R.color.primary);
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser == null || currentUser.getPhotoUrl() == null) {
+                iconProfile.setColorFilter(primaryColor);
+            }
+            iconProfile.setScaleX(1.15f); iconProfile.setScaleY(1.15f);
         }
     }
 }

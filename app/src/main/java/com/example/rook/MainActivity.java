@@ -199,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openApiDetails(ApiActivity activity) {
-        Intent intent = new Intent(this, TestApiActivity.class);
+        Intent intent = new Intent(this, ApiLabActivity.class);
         intent.putExtra("METHOD", activity.method);
         intent.putExtra("PATH", activity.path);
         intent.putExtra("URL", guessUrlForPath(activity.path));

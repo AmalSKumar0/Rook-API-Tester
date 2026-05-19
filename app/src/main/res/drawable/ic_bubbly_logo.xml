@@ -1,41 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Rook In-App Logo — "API Beaker"
+    Used in the app header (40×40dp card) and login/register screens (120×120dp).
+    Transparent background — the parent card/view provides the background color.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="200dp"
     android:height="200dp"
     android:viewportWidth="200"
     android:viewportHeight="200">
-    <!-- Shadow -->
-    <path 
-        android:fillColor="#1a1c1c" 
-        android:pathData="M64,24 h72 a40,40 0 0 1 40,40 v72 a40,40 0 0 1 -40,40 h-72 a40,40 0 0 1 -40,-40 v-72 a40,40 0 0 1 40,-40 z" />
-    <!-- Main Container -->
-    <path 
-        android:fillColor="@color/primary_container" 
-        android:strokeColor="@color/stroke" 
-        android:strokeWidth="8" 
-        android:pathData="M60,20 h80 a40,40 0 0 1 40,40 v80 a40,40 0 0 1 -40,40 h-80 a40,40 0 0 1 -40,-40 v-80 a40,40 0 0 1 40,-40 z" />
-    <!-- Brackets -->
-    <path 
-        android:strokeColor="@color/stroke" 
-        android:strokeWidth="10" 
-        android:strokeLineCap="round" 
-        android:strokeLineJoin="round" 
-        android:pathData="M65 85L50 100L65 115" />
-    <path 
-        android:strokeColor="@color/stroke" 
-        android:strokeWidth="10" 
-        android:strokeLineCap="round" 
-        android:strokeLineJoin="round" 
-        android:pathData="M135 85L150 100L135 115" />
-    <!-- Beaker -->
-    <path 
-        android:strokeColor="@color/stroke" 
-        android:strokeWidth="8" 
-        android:strokeLineCap="round" 
-        android:pathData="M85 60H115" />
-    <path 
-        android:strokeColor="@color/stroke" 
-        android:strokeWidth="8" 
-        android:strokeLineCap="round" 
-        android:strokeLineJoin="round" 
-        android:pathData="M90 60V85L70 135H130L110 85V60" />
+
+    <!-- Liquid fill (rendered behind beaker stroke) -->
+    <path
+        android:fillColor="#2c6956"
+        android:fillAlpha="0.8"
+        android:pathData="M75,128 L52,172 L148,172 L125,128 Z" />
+
+    <!-- Bubbles in liquid -->
+    <path
+        android:fillColor="#a8e6cf"
+        android:fillAlpha="0.9"
+        android:pathData="M96,148 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:fillColor="#a8e6cf"
+        android:fillAlpha="0.9"
+        android:pathData="M120,158 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0" />
+    <path
+        android:fillColor="#a8e6cf"
+        android:fillAlpha="0.7"
+        android:pathData="M78,162 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+
+    <!-- Beaker outline (drawn on top of fill) -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M75,60 L75,120 L44,172 Q40,180 50,180 L150,180 Q160,180 156,172 L125,120 L125,60 Z" />
+
+    <!-- Beaker rim -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M62,60 L138,60" />
+
+    <!-- Left code bracket < -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M36,88 L18,108 L36,128" />
+
+    <!-- Right code bracket > -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M164,88 L182,108 L164,128" />
+
 </vector>

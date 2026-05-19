@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Rook App Logo — "API Beaker"
+    A stylized laboratory beaker with code brackets, representing API testing.
+    Primary: mint green container, dark stroke, clean lines.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rounded square background -->
+    <path
+        android:fillColor="#a8e6cf"
+        android:pathData="M20,0 L88,0 Q108,0 108,20 L108,88 Q108,108 88,108 L20,108 Q0,108 0,88 L0,20 Q0,0 20,0 Z" />
+
+    <!-- Subtle grid lines (API grid aesthetic) -->
+    <path
+        android:strokeColor="#2c695640"
+        android:strokeWidth="1"
+        android:pathData="M0,36 L108,36" />
+    <path
+        android:strokeColor="#2c695640"
+        android:strokeWidth="1"
+        android:pathData="M0,72 L108,72" />
+    <path
+        android:strokeColor="#2c695640"
+        android:strokeWidth="1"
+        android:pathData="M36,0 L36,108" />
+    <path
+        android:strokeColor="#2c695640"
+        android:strokeWidth="1"
+        android:pathData="M72,0 L72,108" />
+
+    <!-- Beaker body — thick stroke, rounded cap -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M40,30 L40,58 L22,84 Q20,88 24,88 L84,88 Q88,88 86,84 L68,58 L68,30 Z" />
+
+    <!-- Beaker rim (top horizontal bar) -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M35,30 L73,30" />
+
+    <!-- Liquid fill inside beaker -->
+    <path
+        android:fillColor="#2c6956"
+        android:fillAlpha="0.75"
+        android:pathData="M40,68 L28,88 L80,88 L68,68 Z" />
+
+    <!-- Bubble 1 -->
+    <path
+        android:fillColor="#a8e6cf"
+        android:pathData="M50,75 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+
+    <!-- Bubble 2 (smaller) -->
+    <path
+        android:fillColor="#a8e6cf"
+        android:pathData="M62,80 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+
+    <!-- Left code bracket -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M18,46 L10,54 L18,62" />
+
+    <!-- Right code bracket -->
+    <path
+        android:strokeColor="#1a1c1c"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M90,46 L98,54 L90,62" />
+
+</vector>

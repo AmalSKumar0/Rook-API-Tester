@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.Rook" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.Rook" parent="Theme.Material3.Light.NoActionBar">
         <!-- Customize your light theme here. -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
@@ -17,6 +17,10 @@
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/on_surface</item>
         <item name="android:windowBackground">@color/surface</item>
+        <!-- Ensure EditText text is visible in light mode -->
+        <item name="android:textColorPrimary">@color/on_surface</item>
+        <item name="android:textColorSecondary">@color/on_surface_variant</item>
+        <item name="android:editTextColor">@color/on_surface</item>
     </style>
 
     <style name="Theme.Rook" parent="Base.Theme.Rook" />
@@ -55,6 +59,13 @@
         <item name="boxBackgroundColor">@color/surface_container_lowest</item>
         <item name="hintTextColor">@color/on_surface_variant</item>
         <item name="android:textColorHint">@color/on_surface_variant</item>
+        <!-- Ensure typed text is always visible regardless of mode -->
+        <item name="android:textColor">@color/on_surface</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.App.Corner.Circle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 
 </resources>
